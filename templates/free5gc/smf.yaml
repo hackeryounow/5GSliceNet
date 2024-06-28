@@ -1,0 +1,67 @@
+smf:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: free5gc/smf
+    tag: "v3.3.0"
+    digest: ""
+    ## Specify a imagePullPolicy
+    ## Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
+    ## ref: https://kubernetes.io/docs/user-guide/images/#pre-pulling-images
+    ##
+    pullPolicy: IfNotPresent
+    ## Optionally specify an array of imagePullSecrets.
+    ## Secrets must be manually created in the namespace.
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+    ## e.g:
+    ## pullSecrets:
+    ##   - myRegistryKeySecretName
+    ##
+    pullSecrets: []
+    ## Set to true if you would like to see extra information on logs
+    ##
+    debug: false
+
+  config:
+    smfName: SMF
+    sbi:
+      registerIPv4: ""  # IP used to register to NRF
+      bindingIPv4: ""  # IP used to bind the service
+    snssaiInfos:  # the S-NSSAI (Single Network Slice Selection Assistance Information) list supported by this AMF
+      - sNssai:  # S-NSSAI (Single Network Slice Selection Assistance Information)
+          sst: 1  # Slice/Service Type (uinteger, range: 0~255)
+          sd: ffffff  # Slice Differentiator (3 bytes hex string, range: 000000~FFFFFF)
+        dnnInfos:  # DNN information list
+          - dnn: internet  # Data Network Name
+            dns:  # the IP address of DNS
+              ipv4: 8.8.8.8
+              ipv6: 2001:4860:4860::8888
+    plmnList:  # the list of PLMN IDs that this SMF belongs to (optional, remove this key when unnecessary)
+      - mcc: 999  # Mobile Country Code (3 digits string, digit: 0~9)
+        mnc: 70  # Mobile Network Code (2 or 3 digits string, digit: 0~9)
+    pfcp:  # the IP address of N4 interface on this SMF (PFCP)
+      # addr config is deprecated in smf config v1.0.3, please use the following config
+      nodeID: ""  # the Node ID of this SMF
+      listenAddr: ""  # the IP/FQDN of N4 interface on this SMF (PFCP)
+      externalAddr: ""  # the IP/FQDN of N4 interface on this SMF (PFCP)
+    userplaneInformation:
+      upNodes:
+        UPF:
+          nodeID: ""  # the Node ID of this UPF
+          addr: ""  # the IP/FQDN of N4 interface on this UPF (PFCP)
+          sNssaiUpfInfos:  # S-NSSAI information list for this UPF
+            - sNssai:  # S-NSSAI (Single Network Slice Selection Assistance Information)
+                sst: 1  # Slice/Service Type (uinteger, range: 0~255)
+                sd: ffffff  # Slice Differentiator (3 bytes hex string, range: 000000~FFFFFF)
+              dnnUpfInfoList:  # DNN information list for this S-NSSAI
+                - dnn: internet
+                  pools:
+                    - cidr: 10.60.0.0/16
+                  staticPools:
+                    - cidr: 10.60.100.0/24
+          interfaces:
+            endpoints: ""
+            networkInstances: internet
+    nrfUri: ""  # a valid URI of NRF
+    logger:
+      level: info

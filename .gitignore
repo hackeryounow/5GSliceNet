@@ -18,5 +18,16 @@ rad.json
 *.g.xlf
 #License-file
 *.flf
-#Test results file
+#Test results file or folder
 TestResults.xml
+unittest/
+unit_test/
+
+# Tested Charts Folder
+5gc_mode*/
+5gc/ 
+charts/
+
+# IDEA Folder
+.idea/
+__pycache__/

@@ -1,0 +1,44 @@
+nssf:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: free5gc/nssf
+    tag: "v3.3.0"
+    digest: ""
+    ## Specify a imagePullPolicy
+    ## Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
+    ## ref: https://kubernetes.io/docs/user-guide/images/#pre-pulling-images
+    ##
+    pullPolicy: IfNotPresent
+    ## Optionally specify an array of imagePullSecrets.
+    ## Secrets must be manually created in the namespace.
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+    ## e.g:
+    ## pullSecrets:
+    ##   - myRegistryKeySecretName
+    ##
+    pullSecrets: []
+    ## Set to true if you would like to see extra information on logs
+    ##
+    debug: false
+
+  config:
+    nssfName: NSSF
+    sbi:
+      registerIPv4: ""  # IP used to register to NRF
+      bindingIPv4: ""  # IP used to bind the service
+    nrfUri: ""  # a valid URI of NRF
+    supportedPlmnList:
+      - mcc: 999
+        mnc: 70
+    supportedNssaiInPlmnList:
+      - plmnId:  # Public Land Mobile Network ID, <PLMN ID> = <MCC><MNC>
+          mcc: 999  # Mobile Country Code (3 digits string, digit: 0~9)
+          mnc: 70  # Mobile Network Code (2 or 3 digits string, digit: 0~9)
+        supportedSnssaiList:  # Supported S-NSSAIs of the PLMN
+          - sst: 1  # Slice/Service Type (uinteger, range: 0~255)
+            sd: ffffff  # Slice Differentiator (3 bytes hex string, range: 000000~FFFFFF)
+          - sst: 1
+            sd: "010203"
+    logger:
+      level: info

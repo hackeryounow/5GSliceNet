@@ -1,0 +1,100 @@
+{
+  "slices": {
+    "s1" :["smf00001", "nssf00001", "amf00001", "ausf00001", "pcf00001", "udm00001", "udr00001", "nrf00001", "upf00001", "upfb00001"],
+    "s2": ["smf00002", "nssf00001", "amf00001", "ausf00001", "pcf00001", "udm00001", "udr00001", "nrf00001", "upf00002"]
+  },
+  "network_functions": [
+    {
+      "name": "nssf00001",
+      "type": "nssf",
+      "interfaces": [
+        "N_0"
+      ]
+    },
+    {
+      "name": "ausf00001",
+      "type": "ausf",
+      "interfaces": [
+        "N_0"
+      ]
+    },
+    {
+      "name": "udm00001",
+      "type": "udm",
+      "interfaces": [
+        "N_0"
+      ]
+    },
+    {
+      "name": "pcf00001",
+      "type": "pcf",
+      "interfaces": [
+        "N_0"
+      ]
+    },
+    {
+      "name": "udr00001",
+      "type": "udr",
+      "interfaces": [
+        "N_0"
+      ]
+    },
+    {
+      "name": "nrf00001",
+      "type": "nrf",
+      "interfaces": [
+        "N_0"
+      ]
+    },
+    {
+      "name": "amf00001",
+      "type": "amf",
+      "interfaces": [
+        "N_0", "N2_1"
+      ]
+    },
+    {
+      "name": "smf00001",
+      "type": "smf",
+      "interfaces": [
+        "N_0", "N4_1"
+      ]
+    },
+    {
+      "name": "upfb00001",
+      "type": "upfb",
+      "interfaces": [
+        "N3_1",
+        "N4_1",
+        "N9_1"
+      ]
+    },
+    {
+      "name": "upf00001",
+      "type": "upf",
+      "interfaces": [
+        "N9_1",
+        "N4_1",
+        "N6_1"
+      ]
+    },
+    {
+      "name": "smf00002",
+      "type": "smf",
+      "interfaces": [
+        "N_0",
+        "N4_2"
+      ]
+    },
+    {
+      "name": "upf00002",
+      "type": "upf",
+      "interfaces": [
+        "N3_1",
+        "N4_2",
+        "N6_2"
+      ]
+    }
+  ]
+
+}
