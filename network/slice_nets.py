@@ -1,5 +1,7 @@
 import abc
 import copy
+from abc import ABC
+from collections import ChainMap
 
 from network.function import AUSF, CHF, NRF, NSSF, PCF, SMF, UPF, UDM, UDR, WebUI, MongoDB, AMF
 from network.identifiers import PLMN, Guami, TAI, NSSAI, NssaiInPlmn, PfcpForSMF, DnnInfo, SnssaiInfo, DnnUpfInfo, \
@@ -31,7 +33,7 @@ class SliceNet:
                    self.nrf_list + self.nssf_list + self.smf_list +
                    self.upf_list + self.udm_list + self.chf_list +
                    self.udr_list + self.webconsole_list + self.db_list)
-        return reduce(lambda d1, d2: {**d1, **d2}, nf_list)
+        return dict(ChainMap(*[nf.to_dict() for nf in nf_list]))
 
     def save_values_yaml(self):
         values_yaml = copy.deepcopy(self.to_dict())
@@ -47,6 +49,8 @@ class CommonSliceNet(SliceNet):
         self.udr_list.append(UDR("udr"))
         self.webconsole_list.append(WebUI("webui"))
         self.db_list.append(MongoDB("mongodb"))
+        self.dependencies = []
+        self.net_spliter = NetSpliter("10.60.0.0", "16")
 
     def configure(self):
         ConfigUtils.delete_folder(self.path)
@@ -55,14 +59,20 @@ class CommonSliceNet(SliceNet):
         self._update_chart_yaml()
         self.save_values_yaml()
 
-    @abc.abstractmethod
     def copy_charts(self):
+        self.copy_common()
+        self.copy_specific_charts()
+
+    @abc.abstractmethod
+    def copy_specific_charts(self):
         pass
 
     def _update_chart_yaml(self):
+        chart_template_path = f"{self.path}/../templates/free5gc/chart.yaml"
         chart_path = f"{self.path}/free5gc/Chart.yaml"
-        chart_yaml = ConfigUtils.load_yaml(chart_path)
-        chart_yaml["dependencies"].extend(self.update_dependency())
+        chart_yaml = ConfigUtils.load_yaml(chart_template_path)
+        self.update_dependency()
+        chart_yaml["dependencies"].extend(self.dependencies)
         ConfigUtils.write_yaml(chart_yaml, chart_path)
 
     @abc.abstractmethod
@@ -82,6 +92,11 @@ class CommonSliceNet(SliceNet):
         ConfigUtils.copy_folder("charts/free5gc-udr", f"{self.path}/free5gc-udr")
 
     def chg_sub_chart_name(self, chart_name):
+        """
+        Change subchart name.
+        :param chart_name: subchart name would be changed as `chart_name`.
+        :return: None
+        """
         chart_path = f"{self.path}/{chart_name}/Chart.yaml"
         chart_yaml = ConfigUtils.load_yaml(chart_path)
         # ConfigUtils.delete_folder(chart_path)
@@ -89,55 +104,67 @@ class CommonSliceNet(SliceNet):
         ConfigUtils.write_yaml(chart_yaml, chart_path)
 
 
-class SliceNetModeOne(CommonSliceNet):
-    def __init__(self, slices_num, dnn_names, path="5gc_mode1"):
+class NormalSliceNet(CommonSliceNet, ABC):
+    def __init__(self, slices_num, dnn_names, path="5gc"):
         super().__init__(path)
         amf_id = AMF.random_amf_id()
         plmn = PLMN("999", "70")
-        supported_plmns = [plmn]
+        self.supported_plmns = [plmn]
         guami = Guami(plmn, amf_id)
         served_guami_list = [guami]
         tai = TAI(plmn)
         support_tai_list = [tai]
-        nssais = [NSSAI() for _ in range(slices_num)]
-        nssai_in_plmn = NssaiInPlmn(plmn, nssais)
+        self.nssais = [NSSAI() for _ in range(slices_num)]
+        nssai_in_plmn = NssaiInPlmn(plmn, self.nssais)
         support_plmn_list = [nssai_in_plmn]
         supported_dnn_list = dnn_names
+        self.dnn_names = dnn_names
         self.slices_num = slices_num
         self.amf_list.append(AMF("amf", served_guami_list, support_tai_list, support_plmn_list, supported_dnn_list))
-        self.ausf_list.append(AUSF("ausf", supported_plmns))
         self.pcf_list.append(PCF("pcf"))
+        self.ausf_list.append(AUSF("ausf", self.supported_plmns))
         self.nrf_list.append(NRF("nrf", plmn))
-        self.nssf_list.append(NSSF("nssf", supported_plmns, support_plmn_list))
-        net_spliter = NetSpliter("10.60.0.0", "16")
+        self.nssf_list.append(NSSF("nssf", self.supported_plmns, support_plmn_list))
+
+    def create_upf(self, i, pool):
+        pfcp = PfcpForUPF()
+        dnn = DNN(self.dnn_names[i], pool)
+        upf = UPF(self.dnn_names[i], pfcp, [dnn])
+        return upf
+
+
+class SliceNetModeOne(NormalSliceNet):
+    def __init__(self, slices_num, dnn_names, path="5gc_mode1"):
+        super().__init__(slices_num, dnn_names, path)
         # TODO: 配置切片与垂直行业网络对应
         for i in range(self.slices_num):
-            pfcp = PfcpForSMF()
-            dnn_info = DnnInfo(dnn_names[i], "8.8.8.8", "2001:4860:4860::8888")
-            dnn_infos = [dnn_info]
-            nssai_info = SnssaiInfo(nssais[i], dnn_infos)
-            nssai_infos = [nssai_info]
-            pool, static_pool = net_spliter.split()
-            dnn_upf_info = DnnUpfInfo(dnn_names[i], pool, static_pool)
-            dnn_upf_infos = [dnn_upf_info]
-            snssai_upf_info = SnssaiUpfInfo(nssais[i], dnn_upf_infos)
-            snssai_upf_infos = [snssai_upf_info]
-            interface = Interface("", dnn_names[i])
-            interfaces = [interface]
-            gnb = GnbNode("gNB1")
-            up_node = PSAUpfNode("upf", snssai_upf_infos, interfaces)
-            up_nodes = [gnb, up_node]
-            link = Link("gNB1", f"UPF")
-            links = [link]
-            smf = SMF(f"smf{i + 1}", nssai_infos, supported_plmns, pfcp, up_nodes, links)
+            pool, static_pool = self.net_spliter.split()
+            smf = self._create_smf(i, pool, static_pool)
             self.smf_list.append(smf)
-            pfcp = PfcpForUPF()
-            dnn = DNN(dnn_names[i], pool)
-            upf = UPF(f"upf{i + 1}", pfcp, [dnn])
+            upf = self.create_upf(i, pool)
             self.upf_list.append(upf)
 
-    def copy_charts(self):
-        super().copy_common()
+    def _create_smf(self, i, pool, static_pool):
+        dnn_info = DnnInfo(self.dnn_names[i], "8.8.8.8", "2001:4860:4860::8888")
+        dnn_infos = [dnn_info]
+        nssai_info = SnssaiInfo(self.nssais[i], dnn_infos)
+        nssai_infos = [nssai_info]
+        dnn_upf_info = DnnUpfInfo(self.dnn_names[i], pool, static_pool)
+        dnn_upf_infos = [dnn_upf_info]
+        snssai_upf_info = SnssaiUpfInfo(self.nssais[i], dnn_upf_infos)
+        snssai_upf_infos = [snssai_upf_info]
+        interface = Interface("", self.dnn_names[i])
+        interfaces = [interface]
+        up_node = PSAUpfNode("upf", snssai_upf_infos, interfaces)
+        gnb = GnbNode("gNB1")
+        up_nodes = [gnb, up_node]
+        link = Link("gNB1", f"UPF")
+        links = [link]
+        pfcp = PfcpForSMF()
+        smf = SMF(f"smf{i + 1}", nssai_infos, self.supported_plmns, pfcp, up_nodes, links)
+        return smf
+
+    def copy_specific_charts(self):
         ConfigUtils.copy_folder("charts/free5gc-amf", f"{self.path}/free5gc-amf")
         ConfigUtils.copy_folder("charts/free5gc-pcf", f"{self.path}/free5gc-pcf")
         for i in range(self.slices_num):
@@ -147,85 +174,61 @@ class SliceNetModeOne(CommonSliceNet):
             self.chg_sub_chart_name(f"free5gc-upf{i + 1}")
 
     def update_dependency(self):
-        dependencies = []
+        self.dependencies.append(ConfigUtils.tpl_dependency("free5gc-amf", "amf"))
+        self.dependencies.append(ConfigUtils.tpl_dependency("free5gc-pcf", "pcf"))
         for i in range(self.slices_num):
-            dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-smf{i + 1}", f"smf{i + 1}"))
-            dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-upf{i + 1}", f"upf{i + 1}"))
-        return dependencies
+            self.dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-smf{i + 1}", f"smf{i + 1}"))
+            self.dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-upf{i + 1}", f"upf{i + 1}"))
 
 
-class CommonSliceNetModeTwo(CommonSliceNet):
+class SliceNetModeTwo(NormalSliceNet):
     def __init__(self, slices_num, dnn_names, path="5gc_mode2"):
-        super().__init__(path)
-        amf_id = AMF.random_amf_id()
-        plmn = PLMN("999", "70")
-        supported_plmns = [plmn]
-        guami = Guami(plmn, amf_id)
-        served_guami_list = [guami]
-        tai = TAI(plmn)
-        support_tai_list = [tai]
-        nssais = [NSSAI() for _ in range(slices_num)]
-        nssai_in_plmn = NssaiInPlmn(plmn, nssais)
-        support_plmn_list = [nssai_in_plmn]
-        supported_dnn_list = dnn_names
-        self.slices_num = slices_num
-        self.amf = AMF("amf", served_guami_list, support_tai_list, support_plmn_list, supported_dnn_list)
-        self.ausf = AUSF("ausf", supported_plmns)
-        self.nrf = NRF("nrf", plmn)
-        self.nssf = NSSF("nssf", supported_plmns, support_plmn_list)
-        self.pcf = PCF("pcf")
-        net_spliter = NetSpliter("10.70.0.0", "16")
+        super().__init__(slices_num, dnn_names, path)
 
         nssai_infos = []
-        self.upf = []
-        up_nodes = []
+        up_nodes = [GnbNode("gNB1")]
         links = []
         for i in range(self.slices_num):
             dnn_info = DnnInfo(dnn_names[i], "8.8.8.8", "2001:4860:4860::8888")
             dnn_infos = [dnn_info]
-            nssai_info = SnssaiInfo(nssais[i], dnn_infos)
+            nssai_info = SnssaiInfo(self.nssais[i], dnn_infos)
             nssai_infos.append(nssai_info)
-            pool, static_pool = net_spliter.split()
+            pool, static_pool = self.net_spliter.split()
             dnn_upf_info = DnnUpfInfo(dnn_names[i], pool, static_pool)
             dnn_upf_infos = [dnn_upf_info]
-            snssai_upf_info = SnssaiUpfInfo(nssais[i], dnn_upf_infos)
+            snssai_upf_info = SnssaiUpfInfo(self.nssais[i], dnn_upf_infos)
             snssai_upf_infos = [snssai_upf_info]
             interface = Interface("", dnn_names[i])
             interfaces = [interface]
             up_node = PSAUpfNode(f"upf{i + 1}", snssai_upf_infos, interfaces)
             up_nodes.append(up_node)
             links.append(Link(f"gNB1", f"UPF{i + 1}"))
-            pfcp = PfcpForUPF()
-            dnn = DNN(dnn_names[i], pool)
-            upf = UPF(f"upf{i + 1}", pfcp, [dnn])
-            self.upf.append(upf)
+            upf = self.create_upf(i, pool)
+            self.upf_list.append(upf)
         pfcp = PfcpForSMF()
-        self.smf = SMF("smf", nssai_infos, supported_plmns, pfcp, up_nodes, links)
+        self.smf_list.append(SMF("smf", nssai_infos, self.supported_plmns, pfcp, up_nodes, links))
 
-    def copy_charts(self):
-        super().copy_common()
+    def copy_specific_charts(self):
         ConfigUtils.copy_folder("charts/free5gc-amf", f"{self.path}/free5gc-amf")
         ConfigUtils.copy_folder("charts/free5gc-pcf", f"{self.path}/free5gc-pcf")
-        ConfigUtils.copy_folder("charts/free5gc-smf", f"{self.path}/free5gc-smf")
+        ConfigUtils.copy_folder("charts/free5gc-smf", f"{self.path}/free5gc-smf1")
         for i in range(self.slices_num):
             ConfigUtils.copy_folder(f"charts/free5gc-upf", f"{self.path}/free5gc-upf{i + 1}")
+            self.chg_sub_chart_name(f"free5gc-upf{i + 1}")
 
     def update_dependency(self):
-        dependencies = []
+        self.dependencies.append(ConfigUtils.tpl_dependency("free5gc-amf", "amf"))
+        self.dependencies.append(ConfigUtils.tpl_dependency("free5gc-pcf", "pcf"))
+        self.dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-smf1", f"smf1"))
+        self.chg_sub_chart_name(f"free5gc-smf1")
         for i in range(self.slices_num):
-            dependencies.append(ConfigUtils.copy_folder(f"charts/free5gc-upf", f"{self.path}/free5gc-upf{i + 1}"))
-        return dependencies
-
-    def to_dict(self):
-        values_yaml = self.amf.to_dict() | self.ausf.to_dict() | self.chf.to_dict() | self.nrf.to_dict() | \
-                      self.nssf.to_dict() | self.pcf.to_dict() | self.udm.to_dict() | self.udr.to_dict() | \
-                      self.webui.to_dict() | self.mongodb.to_dict() | self.smf.to_dict()
-        for i in range(self.slices_num):
-            values_yaml = values_yaml | self.upf[i].to_dict()
-        ConfigUtils.write_yaml(copy.deepcopy(values_yaml), self.values_path)
+            self.dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-upf{i + 1}", f"upf{i + 1}"))
 
 
-class CommonSliceNetModeThree(CommonSliceNet):
+class SliceNetModeThree(CommonSliceNet):
+    """
+    Select nearby UPF according to the connected gNodeB
+    """
     def __init__(self, slices_num, dnn_names, area_num, path="5gc_mode3"):
         super().__init__(path)
         self.area_num = area_num
@@ -237,15 +240,9 @@ class CommonSliceNetModeThree(CommonSliceNet):
         support_plmn_list = [nssai_in_plmn]
         supported_dnn_list = dnn_names
         self.slices_num = slices_num
-
-        self.ausf = AUSF("ausf", supported_plmns)
-        self.nrf = NRF("nrf", plmn)
-        self.nssf = NSSF("nssf", supported_plmns, support_plmn_list)
-        self.amf = []
-        self.smf = []
-        self.upf = []
-        self.pcf = []
-        net_spliter = NetSpliter("10.80.0.0", "16")
+        self.amf_list.append(AUSF("ausf", supported_plmns))
+        self.nrf_list.append(NRF("nrf", plmn))
+        self.nssf_list.append(NSSF("nssf", supported_plmns, support_plmn_list))
 
         for i in range(self.area_num):
             locality = f"area{i + 1}"
@@ -256,14 +253,14 @@ class CommonSliceNetModeThree(CommonSliceNet):
             support_tai_list = [tai]
             amf = AMF(f"amf{i + 1}", served_guami_list, support_tai_list,
                       support_plmn_list, supported_dnn_list, locality=locality)
-            self.amf.append(amf)
-            self.pcf.append(PCF(f"pcf{i + 1}", locality=locality))
+            self.amf_list.append(amf)
+            self.pcf_list.append(PCF(f"pcf{i + 1}", locality=locality))
             pfcp = PfcpForSMF()
             dnn_info = DnnInfo(dnn_names[0], "8.8.8.8", "2001:4860:4860::8888")
             dnn_infos = [dnn_info]
             nssai_info = SnssaiInfo(nssais[0], dnn_infos)
             nssai_infos = [nssai_info]
-            pool, static_pool = net_spliter.split()
+            pool, static_pool = self.net_spliter.split()
             dnn_upf_info = DnnUpfInfo(dnn_names[0], pool, static_pool)
             dnn_upf_infos = [dnn_upf_info]
             snssai_upf_info = SnssaiUpfInfo(nssais[0], dnn_upf_infos)
@@ -275,40 +272,32 @@ class CommonSliceNetModeThree(CommonSliceNet):
             link = Link("gNB1", f"UPF")
             links = [link]
             smf = SMF(f"smf{i + 1}", nssai_infos, supported_plmns, pfcp, up_nodes, links, locality=locality)
-            self.smf.append(smf)
+            self.smf_list.append(smf)
             pfcp = PfcpForUPF()
             dnn = DNN(dnn_names[0], pool)
             upf = UPF(f"upf{i + 1}", pfcp, [dnn])
-            self.upf.append(upf)
+            self.upf_list.append(upf)
 
-    def copy_charts(self):
-        super().copy_common()
+    def copy_specific_charts(self):
         for i in range(self.area_num):
             ConfigUtils.copy_folder("charts/free5gc-amf", f"{self.path}/free5gc-amf{i + 1}")
             ConfigUtils.copy_folder("charts/free5gc-pcf", f"{self.path}/free5gc-pcf{i + 1}")
             ConfigUtils.copy_folder("charts/free5gc-smf", f"{self.path}/free5gc-smf{i + 1}")
             ConfigUtils.copy_folder(f"charts/free5gc-upf", f"{self.path}/free5gc-upf{i + 1}")
 
-    def to_dict(self):
-        values_yaml = self.ausf.to_dict() | self.chf.to_dict() | self.nrf.to_dict() | \
-                      self.nssf.to_dict() | self.udm.to_dict() | self.udr.to_dict() | \
-                      self.webui.to_dict() | self.mongodb.to_dict()
-        for i in range(self.area_num):
-            values_yaml = values_yaml | self.upf[i].to_dict() | self.amf[i].to_dict() | \
-                          self.pcf[i].to_dict() | self.smf[i].to_dict()
-        ConfigUtils.write_yaml(copy.deepcopy(values_yaml), self.values_path)
-
     def update_dependency(self):
-        dependencies = []
         for i in range(self.area_num):
-            dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-amf{i + 1}", f"free5gc-amf{i + 1}"))
-            dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-pcf{i + 1}", f"free5gc-pcf{i + 1}"))
-            dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-smf{i + 1}", f"free5gc-smf{i + 1}"))
-            dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-upf{i + 1}", f"free5gc-upf{i + 1}"))
-        return dependencies
+            self.dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-amf{i + 1}", f"amf{i + 1}"))
+            self.dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-pcf{i + 1}", f"pcf{i + 1}"))
+            self.dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-smf{i + 1}", f"smf{i + 1}"))
+            self.dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-upf{i + 1}", f"upf{i + 1}"))
+            self.chg_sub_chart_name(f"free5gc-upf{i + 1}")
+            self.chg_sub_chart_name(f"free5gc-smf{i + 1}")
+            self.chg_sub_chart_name(f"free5gc-amf{i + 1}")
+            self.chg_sub_chart_name(f"free5gc-pcf{i + 1}")
 
 
-class CommonSliceNetModeFour(CommonSliceNet):
+class SliceNetModeFour(CommonSliceNet):
 
     def __init__(self, slices_num, dnn_names, path="5gc_mode4"):
         super().__init__(path)
@@ -324,13 +313,10 @@ class CommonSliceNetModeFour(CommonSliceNet):
         support_plmn_list = [nssai_in_plmn]
         supported_dnn_list = dnn_names
         self.slices_num = slices_num
-        self.amf = AMF("amf", served_guami_list, support_tai_list, support_plmn_list, supported_dnn_list)
-        self.ausf = AUSF("ausf", supported_plmns)
-        self.pcf = PCF("pcf")
-        self.nrf = NRF("nrf", plmn)
-        self.nssf = NSSF("nssf", supported_plmns, support_plmn_list)
-        self.smf = []
-        self.upf = []
+        self.amf_list.append(AMF("amf", served_guami_list, support_tai_list, support_plmn_list, supported_dnn_list))
+        self.amf_list.append(AUSF("ausf", supported_plmns))
+        self.nrf_list.append(NRF("nrf", plmn))
+        self.nssf_list.append(NSSF("nssf", supported_plmns, support_plmn_list))
         net_spliter = NetSpliter("10.60.0.0", "16")
         # TODO: 配置切片与垂直行业网络对应
         for i in range(self.slices_num):
@@ -349,18 +335,17 @@ class CommonSliceNetModeFour(CommonSliceNet):
             iup_node = IUpfNode("iupf", snssai_upf_infos, interfaces)
             psa_up_node = PSAUpfNode("psaupf", snssai_upf_infos, interfaces)
             up_nodes = [iup_node, psa_up_node]
-            link1 = Link("gNB1", f"UPF")
+            link1 = Link("gNB1", f"IUPF")
             link2 = Link("IUPF", f"PSAUPF")
             links = [link1, link2]
             smf = SMF(f"smf{i + 1}", nssai_infos, supported_plmns, pfcp, up_nodes, links, ulcl=True)
-            self.smf.append(smf)
+            self.smf_list.append(smf)
             pfcp = PfcpForUPF()
             dnn = DNN(dnn_names[i], pool)
             upf = UPF(f"upf{i + 1}", pfcp, [dnn])
-            self.upf.append(upf)
+            self.upf_list.append(upf)
 
-    def copy_charts(self):
-        super().copy_common()
+    def copy_specific_charts(self):
         ConfigUtils.copy_folder("charts/free5gc-amf", f"{self.path}/free5gc-amf")
         ConfigUtils.copy_folder("charts/free5gc-pcf", f"{self.path}/free5gc-pcf")
         for i in range(self.slices_num):
@@ -368,17 +353,11 @@ class CommonSliceNetModeFour(CommonSliceNet):
             ConfigUtils.copy_folder(f"charts/free5gc-upf", f"{self.path}/free5gc-upf{i + 1}")
 
     def update_dependency(self):
-        dependencies = []
+        self.dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-amf", f"amf"))
+        self.dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-pcf", f"pcf"))
         for i in range(self.slices_num):
-            dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-smf{i + 1}", f"free5gc-smf{i + 1}"))
-            dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-upf{i + 1}", f"free5gc-upf{i + 1}"))
-        return dependencies
+            self.dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-smf{i + 1}", f"smf{i + 1}"))
+            self.dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-upf{i + 1}", f"upf{i + 1}"))
+            self.chg_sub_chart_name(f"free5gc-upf{i + 1}")
+            self.chg_sub_chart_name(f"free5gc-smf{i + 1}")
 
-    def to_dict(self):
-        values_yaml = self.amf.to_dict() | self.ausf.to_dict() | self.chf.to_dict() | self.nrf.to_dict() | \
-                      self.nssf.to_dict() | self.pcf.to_dict() | self.udm.to_dict() | self.udr.to_dict() | \
-                      self.webui.to_dict() | self.mongodb.to_dict()
-        for i in range(self.slices_num):
-            values_yaml = values_yaml | self.smf[i].to_dict()
-            values_yaml = values_yaml | self.upf[i].to_dict()
-        ConfigUtils.write_yaml(copy.deepcopy(values_yaml), "values4.yaml")

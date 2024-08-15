@@ -225,7 +225,7 @@ class UPF(Node):
 
     def configure(self):
         self.values_yaml["upf"]["config"]["pfcp"] = self.pfcp.to_dict()
-        self.values_yaml["upf"]["config"]["gtpu_if_list_name"] = self.gtpu_if_list_name
+        self.values_yaml["upf"]["config"]["gtpu"]["ifList"]["name"] = self.gtpu_if_list_name
         self.values_yaml["upf"]["config"]["dnnList"] = ConfigUtils.list2dict(self.dnns)
 
 
