@@ -298,6 +298,9 @@ class SliceNetModeThree(CommonSliceNet):
 
 
 class SliceNetModeFour(CommonSliceNet):
+    """
+    TODO: ULCL
+    """
 
     def __init__(self, slices_num, dnn_names, path="5gc_mode4"):
         super().__init__(path)
@@ -342,15 +345,18 @@ class SliceNetModeFour(CommonSliceNet):
             self.smf_list.append(smf)
             pfcp = PfcpForUPF()
             dnn = DNN(dnn_names[i], pool)
-            upf = UPF(f"upf{i + 1}", pfcp, [dnn])
-            self.upf_list.append(upf)
+            i_upf = UPF(f"upf{i + 1}", pfcp, [dnn])
+            psa_upf = UPF(f"upf{i + 1}", pfcp, [dnn])
+            self.upf_list.append(i_upf)
+            self.upf_list.append(psa_upf)
 
     def copy_specific_charts(self):
         ConfigUtils.copy_folder("charts/free5gc-amf", f"{self.path}/free5gc-amf")
         ConfigUtils.copy_folder("charts/free5gc-pcf", f"{self.path}/free5gc-pcf")
         for i in range(self.slices_num):
-            ConfigUtils.copy_folder(f"charts/free5gc-smf", f"{self.path}/free5gc-smf{i + 1}")
+            ConfigUtils.copy_folder(f"charts/free5gc-smf-ulcl", f"{self.path}/free5gc-smf{i + 1}")
             ConfigUtils.copy_folder(f"charts/free5gc-upf", f"{self.path}/free5gc-upf{i + 1}")
+            ConfigUtils.copy_folder(f"charts/free5gc-upf", f"{self.path}/free5gc-psa-upf{i + 1}")
 
     def update_dependency(self):
         self.dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-amf", f"amf"))
@@ -358,6 +364,8 @@ class SliceNetModeFour(CommonSliceNet):
         for i in range(self.slices_num):
             self.dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-smf{i + 1}", f"smf{i + 1}"))
             self.dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-upf{i + 1}", f"upf{i + 1}"))
+            self.dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-psa-upf{i + 1}", f"psa-upf{i + 1}"))
             self.chg_sub_chart_name(f"free5gc-upf{i + 1}")
+            self.chg_sub_chart_name(f"free5gc-psa-upf{i + 1}")
             self.chg_sub_chart_name(f"free5gc-smf{i + 1}")
 
