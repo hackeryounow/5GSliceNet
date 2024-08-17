@@ -175,7 +175,7 @@ class SMF(Node):
         self.values_yaml["smf"]["config"]["snssaiInfos"] = ConfigUtils.list2dict(self.snssai_infos)
         self.values_yaml["smf"]["config"]["plmnList"] = ConfigUtils.list2dict(self.plmns)
         self.values_yaml["smf"]["config"]["pfcp"] = self.pfcp.to_dict()
-        self.values_yaml["smf"]["config"]["userplaneInformation"]["upNodes"] = SMF.format_up_nodes(self.up_nodes)
+        self.values_yaml["smf"]["config"]["userplaneInformation"]["upNodes"] = ConfigUtils.list2dict(self.up_nodes)
         self.values_yaml["smf"]["config"]["locality"] = self.locality
         self.values_yaml["smf"]["config"]["sbi"]["registerIPv4"] = self.sbi_register_ipv4
         self.values_yaml["smf"]["config"]["sbi"]["bindingIPv4"] = self.sbi_binding_ipv4

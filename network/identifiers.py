@@ -226,13 +226,13 @@ class IUpfNode(UpfNode):
 
     def to_dict(self):
         return {
-            self.name.upper(): {
-                "nodeId": self.node_id,
-                "addr": self.addr,
-                "snssaiUpfInfos": [snssai_upf_info.to_dict() for snssai_upf_info in
-                                   self.snssai_upf_infos],
-                "interfaces": ConfigUtils.list2dict(self.interfaces)
-            }
+            "upperName": self.name.upper(),
+            "name": self.name,
+            "nodeId": self.node_id,
+            "addr": self.addr,
+            "snssaiUpfInfos": [snssai_upf_info.to_dict() for snssai_upf_info in
+                               self.snssai_upf_infos],
+            "interfaces": ConfigUtils.list2dict(self.interfaces)
         }
 
 
@@ -242,13 +242,13 @@ class PSAUpfNode(UpfNode):
 
     def to_dict(self):
         return {
-            self.name.upper(): {
-                "nodeId": self.node_id,
-                "addr": self.addr,
-                "snssaiUpfInfos": [snssai_upf_info.to_dict(dnn_with_cidr=True) for snssai_upf_info in
-                                   self.snssai_upf_infos],
-                "interfaces": ConfigUtils.list2dict(self.interfaces)
-            }
+            "upperName": self.name.upper(),
+            "name": self.name,
+            "nodeId": self.node_id,
+            "addr": self.addr,
+            "snssaiUpfInfos": [snssai_upf_info.to_dict(dnn_with_cidr=True) for snssai_upf_info in
+                               self.snssai_upf_infos],
+            "interfaces": ConfigUtils.list2dict(self.interfaces)
         }
 
 

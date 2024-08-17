@@ -155,10 +155,10 @@ class SliceNetModeOne(NormalSliceNet):
         snssai_upf_infos = [snssai_upf_info]
         interface = Interface("", self.dnn_names[i])
         interfaces = [interface]
-        up_node = PSAUpfNode("upf", snssai_upf_infos, interfaces)
-        gnb = GnbNode("gNB1")
-        up_nodes = [gnb, up_node]
-        link = Link("gNB1", f"UPF")
+        up_node = PSAUpfNode(f"upf{i + 1}", snssai_upf_infos, interfaces)
+        # gnb = GnbNode("gNB1")
+        up_nodes = [up_node]
+        link = Link("gNB1", up_node.name.upper())
         links = [link]
         pfcp = PfcpForSMF()
         smf = SMF(f"smf{i + 1}", nssai_infos, self.supported_plmns, pfcp, up_nodes, links)
@@ -168,7 +168,7 @@ class SliceNetModeOne(NormalSliceNet):
         ConfigUtils.copy_folder("charts/free5gc-amf", f"{self.path}/free5gc-amf")
         ConfigUtils.copy_folder("charts/free5gc-pcf", f"{self.path}/free5gc-pcf")
         for i in range(self.slices_num):
-            ConfigUtils.copy_folder(f"charts/free5gc-smf", f"{self.path}/free5gc-smf{i + 1}")
+            ConfigUtils.copy_folder(f"charts/free5gc-smf-ulcl", f"{self.path}/free5gc-smf{i + 1}")
             ConfigUtils.copy_folder(f"charts/free5gc-upf", f"{self.path}/free5gc-upf{i + 1}")
             self.chg_sub_chart_name(f"free5gc-smf{i + 1}")
             self.chg_sub_chart_name(f"free5gc-upf{i + 1}")
@@ -186,7 +186,7 @@ class SliceNetModeTwo(NormalSliceNet):
         super().__init__(slices_num, dnn_names, path)
 
         nssai_infos = []
-        up_nodes = [GnbNode("gNB1")]
+        up_nodes = []
         links = []
         for i in range(self.slices_num):
             dnn_info = DnnInfo(dnn_names[i], "8.8.8.8", "2001:4860:4860::8888")
@@ -202,16 +202,16 @@ class SliceNetModeTwo(NormalSliceNet):
             interfaces = [interface]
             up_node = PSAUpfNode(f"upf{i + 1}", snssai_upf_infos, interfaces)
             up_nodes.append(up_node)
-            links.append(Link(f"gNB1", f"UPF{i + 1}"))
+            links.append(Link(f"gNB1", up_node.name.upper()))
             upf = self.create_upf(i, pool)
             self.upf_list.append(upf)
         pfcp = PfcpForSMF()
-        self.smf_list.append(SMF("smf", nssai_infos, self.supported_plmns, pfcp, up_nodes, links))
+        self.smf_list.append(SMF(f"smf1", nssai_infos, self.supported_plmns, pfcp, up_nodes, links))
 
     def copy_specific_charts(self):
         ConfigUtils.copy_folder("charts/free5gc-amf", f"{self.path}/free5gc-amf")
         ConfigUtils.copy_folder("charts/free5gc-pcf", f"{self.path}/free5gc-pcf")
-        ConfigUtils.copy_folder("charts/free5gc-smf", f"{self.path}/free5gc-smf1")
+        ConfigUtils.copy_folder("charts/free5gc-smf-ulcl", f"{self.path}/free5gc-smf1")
         for i in range(self.slices_num):
             ConfigUtils.copy_folder(f"charts/free5gc-upf", f"{self.path}/free5gc-upf{i + 1}")
             self.chg_sub_chart_name(f"free5gc-upf{i + 1}")
@@ -267,9 +267,9 @@ class SliceNetModeThree(CommonSliceNet):
             snssai_upf_infos = [snssai_upf_info]
             interface = Interface("", dnn_names[0])
             interfaces = [interface]
-            up_node = PSAUpfNode("upf", snssai_upf_infos, interfaces)
+            up_node = PSAUpfNode(f"upf{i + 1}", snssai_upf_infos, interfaces)
             up_nodes = [up_node]
-            link = Link("gNB1", f"UPF")
+            link = Link("gNB1", up_node.name.upper())
             links = [link]
             smf = SMF(f"smf{i + 1}", nssai_infos, supported_plmns, pfcp, up_nodes, links, locality=locality)
             self.smf_list.append(smf)
@@ -282,7 +282,7 @@ class SliceNetModeThree(CommonSliceNet):
         for i in range(self.area_num):
             ConfigUtils.copy_folder("charts/free5gc-amf", f"{self.path}/free5gc-amf{i + 1}")
             ConfigUtils.copy_folder("charts/free5gc-pcf", f"{self.path}/free5gc-pcf{i + 1}")
-            ConfigUtils.copy_folder("charts/free5gc-smf", f"{self.path}/free5gc-smf{i + 1}")
+            ConfigUtils.copy_folder("charts/free5gc-smf-ulcl", f"{self.path}/free5gc-smf{i + 1}")
             ConfigUtils.copy_folder(f"charts/free5gc-upf", f"{self.path}/free5gc-upf{i + 1}")
 
     def update_dependency(self):
@@ -298,9 +298,6 @@ class SliceNetModeThree(CommonSliceNet):
 
 
 class SliceNetModeFour(CommonSliceNet):
-    """
-    TODO: ULCL
-    """
 
     def __init__(self, slices_num, dnn_names, path="5gc_mode4"):
         super().__init__(path)
@@ -334,12 +331,15 @@ class SliceNetModeFour(CommonSliceNet):
             snssai_upf_info = SnssaiUpfInfo(nssais[i], dnn_upf_infos)
             snssai_upf_infos = [snssai_upf_info]
             interface = Interface("", dnn_names[i])
-            interfaces = [interface]
-            iup_node = IUpfNode("iupf", snssai_upf_infos, interfaces)
-            psa_up_node = PSAUpfNode("psaupf", snssai_upf_infos, interfaces)
+            interface2 = Interface("", dnn_names[i], "N9")
+            interfaces = [interface, interface2]
+            iup_node = IUpfNode(f"iupf{i+1}", snssai_upf_infos, interfaces)
+            interface3 = Interface("", dnn_names[i], "N9")
+            interfaces2 = [interface3]
+            psa_up_node = PSAUpfNode(f"psaupf{i+1}", snssai_upf_infos, interfaces2)
             up_nodes = [iup_node, psa_up_node]
-            link1 = Link("gNB1", f"IUPF")
-            link2 = Link("IUPF", f"PSAUPF")
+            link1 = Link("gNB1", iup_node.name.upper())
+            link2 = Link(iup_node.name.upper(), psa_up_node.name.upper())
             links = [link1, link2]
             smf = SMF(f"smf{i + 1}", nssai_infos, supported_plmns, pfcp, up_nodes, links, ulcl=True)
             self.smf_list.append(smf)
@@ -355,17 +355,17 @@ class SliceNetModeFour(CommonSliceNet):
         ConfigUtils.copy_folder("charts/free5gc-pcf", f"{self.path}/free5gc-pcf")
         for i in range(self.slices_num):
             ConfigUtils.copy_folder(f"charts/free5gc-smf-ulcl", f"{self.path}/free5gc-smf{i + 1}")
-            ConfigUtils.copy_folder(f"charts/free5gc-upf", f"{self.path}/free5gc-upf{i + 1}")
-            ConfigUtils.copy_folder(f"charts/free5gc-upf", f"{self.path}/free5gc-psa-upf{i + 1}")
+            ConfigUtils.copy_folder(f"charts/free5gc-upf", f"{self.path}/free5gc-iupf{i + 1}")
+            ConfigUtils.copy_folder(f"charts/free5gc-upf", f"{self.path}/free5gc-psaupf{i + 1}")
 
     def update_dependency(self):
         self.dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-amf", f"amf"))
         self.dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-pcf", f"pcf"))
         for i in range(self.slices_num):
             self.dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-smf{i + 1}", f"smf{i + 1}"))
-            self.dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-upf{i + 1}", f"upf{i + 1}"))
-            self.dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-psa-upf{i + 1}", f"psa-upf{i + 1}"))
-            self.chg_sub_chart_name(f"free5gc-upf{i + 1}")
-            self.chg_sub_chart_name(f"free5gc-psa-upf{i + 1}")
+            self.dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-iupf{i + 1}", f"iupf{i + 1}"))
+            self.dependencies.append(ConfigUtils.tpl_dependency(f"free5gc-psaupf{i + 1}", f"psaupf{i + 1}"))
+            self.chg_sub_chart_name(f"free5gc-iupf{i + 1}")
+            self.chg_sub_chart_name(f"free5gc-psaupf{i + 1}")
             self.chg_sub_chart_name(f"free5gc-smf{i + 1}")
 
