@@ -28,14 +28,21 @@ provides an easy-to-use, cross-platform, automatic solution for multi-slice netw
 - Helm
 
 ### How to use
-1. clone the basic charts from the repository:
+1. Install `gtp` module
+```shell
+git clone https://github.com/free5gc/gtp5g
+cd gtp5g
+make
+make install
+```
+2. Clone the basic charts from the repository:
 ```shell
 git clone https://github.com/hackeryounow/5GSliceNet.git
 cd 5GSliceNet
 git clone https://github.com/hackeryounow/5gc-basic-charts
 mv 5gc_basic_charts charts
 ```
-2. Generate the network deployment files:
+3. Generate the network deployment files:
 ```shell
 # slice1 = SliceNetModeOne(slice_num=2, dnn_names=["internet", "internet"], path="5gc_mode1_1")
 # slice1.configure()
@@ -46,7 +53,7 @@ mv 5gc_basic_charts charts
 # slice4 = SliceNetModeFour(slice_num=1, dnn_names=["internet"], path="5gc_mode4_1")
 # slice4.configure()
 ```
-3. Deploy the 5g slicenet charts:
+4. Deploy the 5g slicenet charts:
 ```shell
 # create namespace and persistent volume
 kubectl create ns free5gc
