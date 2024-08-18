@@ -78,7 +78,9 @@ helm dependency update free5gc
 helm install free5gc free5gc -n free5gc
 ```
 Note 1: The persistent volume path is `/opt/kubedata/` in the example. You can change it to your own path. 
+
 Note 2: The node name is `ubuntu` in the example (Kubernetes cluster has a single master without worker node). You have to change it to your own node name.
+
 Note 3: If the mongodb is not running, please edit the persistent volume and delete the `claimRef`.
 
 ## References
