@@ -30,6 +30,8 @@ provides an easy-to-use, cross-platform, automatic solution for multi-slice netw
 ### How to use
 1. clone the basic charts from the repository:
 ```shell
+git clone https://github.com/hackeryounow/5GSliceNet.git
+cd 5GSliceNet
 git clone https://github.com/hackeryounow/5gc-basic-charts
 mv 5gc_basic_charts charts
 ```
